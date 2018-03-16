@@ -1,46 +1,22 @@
 import { Resolve, Reject } from './promise';
-export enum Status {
-    Waiting,
-    InProgress,
-    Completed,
-    Cancelled
-}
+import { Itemizable } from './interfaces';
+import { Status } from './enums';
+import { Item, ItemResolve } from './item';
 
-export interface TaskResolve extends Resolve {
-    task:Task;
-}
 
-export class Task {
-    private _startTime:Date;
+export class Task extends Item {
+    
     private _duration:number;
-
-    private _name:string;
-    private _description:string;
-
-    private _status:Status;
 
     constructor(
         name:string,
         startTime:Date,
-        duration:number = 60,
-        status:Status = Status.Waiting
+        description:string,
+        status?:Status,
+        duration?:number
     ) {
-        this._startTime = new Date(startTime.getTime());
-        this._name = name;
-        this._status = status;
-    }
-
-    get startTime():Date {
-        return this._startTime;
-    }
-
-    set startTime(start:Date) {
-        this._startTime = start;
-    }
-
-    get endTime():Date {
-        let startTime = new Date(this.startTime.getTime());
-        return new Date(startTime.setMinutes(startTime.getMinutes() + this.duration));
+        super(name, startTime, description, status);
+        this._duration = duration || 60;
     }
 
     get duration():number {
@@ -51,43 +27,44 @@ export class Task {
         this._duration = minutes;
     }
 
-    get name():string {
-        return this._name;
+    get endTime():Date {
+        let startTime = new Date(this.startTime.getTime());
+        return new Date(startTime.setMinutes(startTime.getMinutes() + this.duration));
     }
 
-    set name(name:string) {
-        this._name = name;
+    start():Promise<ItemResolve> {
+        return this.statusChange(
+            [Status.Waiting, Status.Paused],
+            Status.InProgress,
+            'TASK_STARTED',
+            'INCORRECT_TASK_STATUS'
+        );
     }
 
-    get description():string {
-        return this._description;
+    pause():Promise<ItemResolve> {
+        return this.statusChange(
+            [Status.InProgress],
+            Status.Paused,
+            'TASK_PAUSED',
+            'INCORRECT_TASK_STATUS'
+        );
     }
 
-    set description(description:string) {
-        this._description = description;
+    cancel():Promise<ItemResolve> {
+        return this.statusChange(
+            [Status.InProgress, Status.Paused, Status.Waiting],
+            Status.Cancelled,
+            'TASK_CANCELLED',
+            'INCORRECT_TASK_STATUS'
+        );
     }
 
-    get status():Status {
-        return this._status;
+    complete():Promise<ItemResolve> {
+        return this.statusChange(
+            [Status.InProgress, Status.Paused, Status.Waiting],
+            Status.Completed,
+            'TASK_COMPLETED',
+            'INCORRECT_TASK_STATUS'
+        );
     }
-    startTask(startTime?:Date):Promise<TaskResolve> {
-        return new Promise<TaskResolve>((resolve, reject) => {
-            if(this.status !== Status.Waiting) {
-                reject(incorrectTaskStatus(Status.Waiting, this.status));
-            }
-            else {
-                
-            }
-        });
-    }
-    
-}
-
-function incorrectTaskStatus(expected:Status, actual:Status):Reject {
-
-    return {
-        statusCode:500,
-        status:'INCORRECT_TASK_STATUS',
-        message: ''
-    } as Reject;
 }
